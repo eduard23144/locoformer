@@ -1,3 +1,5 @@
+<img src="./fig3.png" width="400px"></img>
+
 ## LocoFormer (wip)
 
 [LocoFormer - Generalist Locomotion via Long-Context Adaptation](https://generalist-locomotion.github.io/)
