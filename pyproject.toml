@@ -15,7 +15,6 @@ keywords = [
     'attention mechanism',
     'robotics',
     'cross-embodiment',
-    'algorithmic distillation'
 ]
 
 classifiers=[
