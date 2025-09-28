@@ -58,6 +58,27 @@ def create_xl_mask(
     create_kwargs = dict(device = device) if exists(device) else dict()
     return create_block_mask(create_block_mask_fn, B = None, H = None, Q_LEN = seq_len, KV_LEN = kv_seq_len, _compile = True, **create_kwargs)
 
+def create_sliding_mask(
+    seq_len,
+    kv_seq_len,
+    window_size,
+    device = None
+):
+    assert kv_seq_len >= seq_len
+    offset = kv_seq_len - seq_len
+
+    def sliding_mask(_, __, q, k):
+        offset_q = q + offset
+        distance = offset_q - k
+
+        backward_sliding_mask = distance <= window_size
+        forward_sliding_mask = distance >= 0
+
+        return backward_sliding_mask & forward_sliding_mask
+
+    create_kwargs = dict(device = device) if exists(device) else dict()
+    return create_block_mask(sliding_mask, B = None, H = None, Q_LEN = seq_len, KV_LEN = kv_seq_len, _compile = True, **create_kwargs)
+
 # transformer-xl with ppo
 
 class Attention(Module):
