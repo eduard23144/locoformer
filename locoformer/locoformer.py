@@ -60,6 +60,67 @@ class Attention(Module):
 
         return self.to_out(out)
 
+class FeedForward(Module):
+    def __init__(
+        self,
+        dim,
+        expansion_factor = 4.,
+        pre_rmsnorm = True
+    ):
+        super().__init__()
+        self.norm = RMSNorm(dim) if pre_rmsnorm else Identity()
+
+        dim_inner = int(dim * expansion_factor * 2 / 3)
+
+        self.proj_in = Linear(dim, dim_inner * 2)
+        self.proj_out = Linear(dim_inner, dim)
+
+    def forward(self, x):
+        x = self.norm(x)
+
+        x, gates = self.proj_in(x).chunk(2, dim = -1)
+
+        x = x * F.gelu(gates)
+
+        return self.proj_out(x)
+
+class TransformerXL(Module):
+    def __init__(
+        self,
+        dim,
+        depth,
+        dim_head = 64,
+        heads = 8,
+        expansion_factor = 4.,
+        final_norm = True
+    ):
+        super().__init__()
+
+        layers = ModuleList([])
+
+        for _ in range(depth):
+            attn = Attention(dim = dim, dim_head = dim_head, heads = heads)
+
+            ff = FeedForward(dim = dim, expansion_factor = expansion_factor)
+
+            layers.append(ModuleList([
+                attn, ff
+            ]))
+
+        self.layers = layers
+        self.norm = RMSNorm(dim) if final_norm else Identity()
+
+    def forward(
+        self,
+        x
+    ):
+
+        for attn, ff in self.layers:
+            x = attn(x) + x
+            x = ff(x) + x
+
+        return self.norm(x)
+
 # class
 
 class Actor(Module):
