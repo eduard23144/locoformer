@@ -19,6 +19,45 @@ def exists(v):
 def default(v, d):
     return v if exists(v) else d
 
+# transformer-xl mask w/ flex attn
+
+flex_attention = None
+
+try:
+    from torch.nn.attention.flex_attention import flex_attention, create_block_mask
+    if torch.cuda.is_available():
+        flex_attention = torch.compile(flex_attention)
+except ImportError:
+    pass
+
+def create_xl_mask(
+    seq_len,
+    kv_seq_len,
+    window_size,
+    lookback_blocks = 1, # in transformer-xl, lookback is one window size block, but can be multiple for longer context
+    device = None
+):
+    assert kv_seq_len >= seq_len
+    assert window_size <= seq_len
+
+    offset = kv_seq_len - seq_len
+
+    def create_block_mask_fn(_, __, q, k):
+        offset_q = q + offset
+        block_q = offset_q // window_size
+        block_k = k // window_size
+
+        causal_mask = offset_q >= k
+
+        # in transformer-xl, the previous segment is fully attended to - may just double the segments and make this sliding for ease of inference logic
+
+        block_mask = (block_q >= block_k) & (block_q <= (block_k + lookback_blocks))
+
+        return causal_mask & block_mask
+
+    create_kwargs = dict(device = device) if exists(device) else dict()
+    return create_block_mask(create_block_mask_fn, B = None, H = None, Q_LEN = seq_len, KV_LEN = kv_seq_len, _compile = True, **create_kwargs)
+
 # transformer-xl with ppo
 
 class Attention(Module):
