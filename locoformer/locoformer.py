@@ -7,6 +7,8 @@ from torch.nn import Module, ModuleList, Linear, RMSNorm, Identity
 from einops import einsum
 from einops.layers.torch import Rearrange
 
+from rotary_embedding_torch import RotaryEmbedding
+
 LinearNoBias = partial(Linear, bias = False)
 
 # helper functions
