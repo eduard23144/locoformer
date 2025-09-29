@@ -1,8 +1,10 @@
 from functools import partial
 
 import torch
+from torch import cat, stack, is_tensor
 import torch.nn.functional as F
 from torch.nn import Module, ModuleList, Linear, RMSNorm, Identity
+from torch.utils._pytree import tree_map
 
 from einops import einsum
 from einops.layers.torch import Rearrange
@@ -20,6 +22,21 @@ def exists(v):
 
 def default(v, d):
     return v if exists(v) else d
+
+def tree_map_tensor(x, fn):
+    return tree_map(lambda t: t if not is_tensor(t) else fn(t), x)
+
+def detach_all(x):
+    return tree_map_tensor(x, lambda t: t.detach())
+
+def combine_kv_cache(cache1, cache2):
+    combined_cache = []
+
+    for layer_cache1, layer_cache2 in zip(cache1, cache2):
+        next_cache = cat((layer_cache1, layer_cache2), dim = -2)
+        combined_cache.append(next_cache)
+
+    return combined_cache
 
 # generalized advantage estimate
 
@@ -133,12 +150,19 @@ class Attention(Module):
     def forward(
         self,
         tokens,
+        kv_cache = None,
+        return_kv_cache = False
     ):
         tokens = self.norm(tokens)
 
         q, k, v = (self.to_q(tokens), *self.to_kv(tokens).chunk(2, dim = -1))
 
         q, k, v = map(self.split_heads, (q, k, v))
+
+        if exists(kv_cache):
+            ck, cv = kv_cache
+            k = cat((ck, k), dim = -2)
+            v = cat((cv, v), dim = -2)
 
         q = q * self.scale
 
@@ -150,7 +174,12 @@ class Attention(Module):
 
         out = self.merge_heads(out)
 
-        return self.to_out(out)
+        out = self.to_out(out)
+
+        if not return_kv_cache:
+            return out
+
+        return out, stack((k, v))
 
 class FeedForward(Module):
     def __init__(
@@ -167,7 +196,10 @@ class FeedForward(Module):
         self.proj_in = Linear(dim, dim_inner * 2)
         self.proj_out = Linear(dim_inner, dim)
 
-    def forward(self, x):
+    def forward(
+        self,
+        x
+    ):
         x = self.norm(x)
 
         x, gates = self.proj_in(x).chunk(2, dim = -1)
@@ -204,14 +236,30 @@ class TransformerXL(Module):
 
     def forward(
         self,
-        x
+        x,
+        cache = None,
+        return_kv_cache = False
     ):
 
-        for attn, ff in self.layers:
-            x = attn(x) + x
+        cache = default(cache, (None,) * len(self.layers))
+
+        next_kv_caches = []
+
+        for (attn, ff), kv_cache in zip(self.layers, cache):
+
+            attn_out, next_kv_cache = attn(x, kv_cache = kv_cache, return_kv_cache = True)
+
+            next_kv_caches.append(next_kv_cache)
+
+            x = attn_out + x
             x = ff(x) + x
 
-        return self.norm(x)
+        out = self.norm(x)
+
+        if not return_kv_cache:
+            return out
+
+        return out, next_kv_caches
 
 # class
 
