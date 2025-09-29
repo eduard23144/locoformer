@@ -9,6 +9,8 @@ from einops.layers.torch import Rearrange
 
 from rotary_embedding_torch import RotaryEmbedding
 
+from assoc_scan import AssocScan
+
 LinearNoBias = partial(Linear, bias = False)
 
 # helper functions
@@ -18,6 +20,34 @@ def exists(v):
 
 def default(v, d):
     return v if exists(v) else d
+
+# generalized advantage estimate
+
+@torch.no_grad()
+def calc_gae(
+    rewards,
+    values,
+    masks,
+    gamma = 0.99,
+    lam = 0.95,
+    use_accelerated = None
+):
+    assert values.shape[-1] == rewards.shape[-1]
+    use_accelerated = default(use_accelerated, rewards.is_cuda)
+
+    values = F.pad(values, (0, 1), value = 0.)
+    values, values_next = values[..., :-1], values[..., 1:]
+
+    delta = rewards + gamma * values_next * masks - values
+    gates = gamma * lam * masks
+
+    scan = AssocScan(reverse = True, use_accelerated = use_accelerated)
+
+    gae = scan(gates, delta)
+
+    returns = gae + values
+
+    return returns
 
 # transformer-xl mask w/ flex attn
 
