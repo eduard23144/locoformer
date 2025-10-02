@@ -81,6 +81,7 @@ def create_xl_mask(
     seq_len,
     kv_seq_len,
     window_size,
+    episode_ids = None,  # (b n) - in the case that within the same batch there are multiple episodes
     lookback_blocks = 1, # in transformer-xl, lookback is one window size block, but can be multiple for longer context
     device = None
 ):
@@ -89,7 +90,7 @@ def create_xl_mask(
 
     offset = kv_seq_len - seq_len
 
-    def create_block_mask_fn(_, __, q, k):
+    def create_block_mask_fn(b, __, q, k):
         offset_q = q + offset
         block_q = offset_q // window_size
         block_k = k // window_size
@@ -100,7 +101,18 @@ def create_xl_mask(
 
         block_mask = (block_q >= block_k) & (block_q <= (block_k + lookback_blocks))
 
-        return causal_mask & block_mask
+        mask = causal_mask & block_mask
+
+        # handle intra-episodic attention if needed
+
+        if exists(episode_ids):
+            q_episode = episodes[b, q + offset]
+            k_episode = episodes[b, k]
+
+            intra_episode_mask = q_episode == k_episode
+            mask = mask & intra_episode_mask
+
+        return mask
 
     create_kwargs = dict(device = device) if exists(device) else dict()
     return create_block_mask(create_block_mask_fn, B = None, H = None, Q_LEN = seq_len, KV_LEN = kv_seq_len, _compile = True, **create_kwargs)
